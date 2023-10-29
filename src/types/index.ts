@@ -7,6 +7,8 @@ export interface SingleLabel {
 
 export interface SingleUser {
   id: number;
+  username: string;
+  password: string;
   name: string;
   avatar_url: string;
 }
@@ -35,6 +37,13 @@ export interface SingleTask {
   assignee: ArrOfNumbers;
   is_important: boolean;
   completed_on: string | null;
+}
+
+export interface Data {
+  task_lists: SingleTaskList[];
+  tasks: SingleTask[];
+  labels: SingleLabel[];
+  users: SingleUser[];
 }
 
 export interface Collection<T> {

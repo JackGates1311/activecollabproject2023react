@@ -4,7 +4,7 @@ import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import { Droppable } from "react-beautiful-dnd";
 import dots from "../assets/trotacka.svg";
-import { SingleTask } from "../types";
+import {SingleTask} from "../types";
 import Task from "../components/Task";
 import { useState } from "react";
 import Prompt from "./Prompt";
@@ -16,6 +16,7 @@ import {
   completeTaskListAction,
   updateTaskListAction,
 } from "../store/taskListReducer";
+import {addNewTask, finishTaskList, removeTaskList} from "../api/api";
 
 interface Props {
   id: number;
@@ -37,40 +38,66 @@ const TaskList = ({ id }: Props) => {
   );
   const taskList = useSelector((state: RootState) => state.taskList[id]);
 
-  const completeTaskList = () => {
+  const completeTaskList = async () => {
     handleMenuClose();
-    dispatch(completeTaskListAction(id));
+
+    const response = await finishTaskList(id);
+
+    if(response.status === 202) {
+      dispatch(completeTaskListAction(id));
+    } else {
+      console.log(JSON.stringify(response.data.status));
+    }
+
   };
 
-  function deleteTaskList() {
+  async function deleteTaskList() {
     handleMenuClose();
-    dispatch(
-      updateTaskListAction({
-        ...taskList,
-        is_trashed: true,
-      }),
-    );
+
+    let payload = {
+      ...taskList,
+      is_trashed: true,
+    };
+
+    const response = await removeTaskList(payload);
+
+    if(response.status === 202) {
+      dispatch(
+          updateTaskListAction(payload),
+      );
+    } else {
+      console.log(JSON.stringify(response.data.status));
+    }
   }
 
-  const onAddTask = (name: string) => {
+  const onAddTask = async (name: string, start_on: string, due_on: string, assignee: number[], labels: number[]) => {
     const position = tasks.length > 0 ? tasks.length : 0;
+
     const payload: SingleTask = {
       id: Date.now(),
       name,
       position,
       is_completed: false,
-      start_on: null,
-      due_on: null,
+      start_on,
+      due_on,
       task_list_id: id,
       comments_count: 0,
       open_subtasks: 0,
       is_important: false,
-      assignee: [],
-      labels: [],
+      assignee,
+      labels,
       completed_on: null,
     };
 
-    dispatch(addTaskAction(payload));
+    const response = await addNewTask(payload);
+
+    if(response.status === 201)
+    {
+      payload.id = response.data.task.id;
+      dispatch(addTaskAction(payload));
+    } else {
+      console.log(JSON.stringify(response.data.status));
+    }
   };
 
   return (
@@ -79,7 +106,7 @@ const TaskList = ({ id }: Props) => {
         {(provided) => (
           <div
             {...provided.droppableProps}
-            ref={provided.innerRef}
+            ref={provided.innerRef} 
             className="w-[350px] py-3 px-1"
           >
             <div className="flex justify-between items-center m-2 mb-5">

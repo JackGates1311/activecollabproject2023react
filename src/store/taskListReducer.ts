@@ -1,6 +1,7 @@
 import { createAction, createReducer } from "@reduxjs/toolkit";
-import { Collection, SingleTaskList } from "../types";
-import data from "../data.json";
+import {Collection, SingleTaskList} from "../types";
+//import data from "../data.json";
+import {fetchTaskLists} from "../api/api";
 
 export const addTaskListAction = createAction<SingleTaskList>(
   "taskList/addTaskList",
@@ -14,7 +15,17 @@ export const completeTaskListAction = createAction<number>(
   "taskLists/completeTaskList",
 );
 
-const initialState = data.task_lists.reduce<Collection<SingleTaskList>>(
+let task_lists: SingleTaskList[] = [];
+try {
+  if(localStorage.getItem('token') !== null && localStorage.getItem('token') !== "" &&
+      localStorage.getItem('token') !== undefined) {
+    task_lists = await fetchTaskLists();
+  }
+} catch (error) {
+  console.error('Error fetching task lists:', error);
+}
+
+const initialState = task_lists.reduce<Collection<SingleTaskList>>( // fetching task list data
   (prev, next) => {
     prev[next.id] = next;
     return prev;
@@ -22,7 +33,9 @@ const initialState = data.task_lists.reduce<Collection<SingleTaskList>>(
   {},
 );
 
-export const taskListReducer = createReducer<Collection<SingleTaskList>>(
+// alert(JSON.stringify(initialState, null, 2));
+
+export const taskListReducer = createReducer<Collection<SingleTaskList>>( // create new task list function
   initialState,
   (builder) => {
     builder

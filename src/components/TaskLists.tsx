@@ -12,6 +12,7 @@ import {
   updateTaskPositionAction,
 } from "../store/taskReducer";
 import CompletedTaskList from "./CompletedTaskList";
+import {addNewTaskList, sortTaskList} from "../api/api";
 
 export const TaskLists = () => {
   const dispatch = useDispatch();
@@ -51,60 +52,76 @@ export const TaskLists = () => {
   );
 
   const handleDragEnd = useCallback(
-    (result: DropResult) => {
-      // console.log("debug", result);
-      if (!result.destination) return;
+    async (result: DropResult) => {
+        if (!result.destination) return;
 
-      const { source, destination, draggableId } = result;
+        const {source, destination, draggableId} = result;
 
-      if (
-        source.droppableId === "completed-list" &&
-        destination?.droppableId === "completed-list"
-      ) {
-        return;
-      }
+        const isDraggedIntoCompletedList = destination?.droppableId === "completed-list";
 
-      if (destination?.droppableId === "completed-list") {
-        dispatch(completeTaskAction(Number(draggableId)));
-        return;
-      }
+        if (source.droppableId === "completed-list" && !isDraggedIntoCompletedList) {
+            dispatch(
+                reopenTaskAction({
+                    id: Number(draggableId),
+                    task_list_id: Number(destination?.droppableId),
+                })
+            );
+        }
 
-      if (source.droppableId === "completed-list") {
-        dispatch(
-          reopenTaskAction({
-            id: Number(draggableId),
-            task_list_id: Number(destination?.droppableId),
-          }),
+        if (isDraggedIntoCompletedList) {
+            dispatch(completeTaskAction(Number(draggableId)));
+        }
+
+        const pos = calculatePositions(
+            source.index,
+            destination?.index,
+            source.droppableId,
+            destination?.droppableId,
         );
-      }
 
-      const pos = calculatePositions(
-        source.index,
-        destination?.index,
-        source.droppableId,
-        destination?.droppableId,
-      );
+        if (pos) {
+            const {"completed-list": completed, ...payload} = pos;
 
-      if (pos) {
-        const { "completed-list": completed, ...payload } = pos;
-        dispatch(updateTaskPositionAction(payload));
-      }
+            if (isDraggedIntoCompletedList) {
+                payload.isCompletedItem = [Number(draggableId)];
+            }
+
+            const response = await sortTaskList(payload);
+
+            if(response.status === 202)
+            {
+                console.log('input: ' + JSON.stringify(payload) + '\n' + JSON.stringify(response.data));
+                dispatch(updateTaskPositionAction(payload));
+            } else {
+                console.log('input: ' + JSON.stringify(payload) + '\n' + JSON.stringify(response.data));
+                console.log(JSON.stringify(response.data));
+            }
+
+        }
     },
     [calculatePositions, dispatch],
   );
 
-  const handleAddNewList = (name: string) => {
-    const lastPosition = taskLists[taskLists.length - 1]?.position || 0;
-    const list: SingleTaskList = {
-      id: Date.now(),
-      name,
-      position: lastPosition + 1,
-      is_completed: false,
-      is_trashed: false,
-      open_tasks: 0,
-      completed_tasks: 0,
-    };
-    dispatch(addTaskListAction(list));
+  const handleAddNewList = async (name: string) => {
+      const lastPosition = taskLists[taskLists.length - 1]?.position || 0;
+      const list: SingleTaskList = {
+          id: Date.now(),
+          name,
+          position: lastPosition + 1,
+          is_completed: false,
+          is_trashed: false,
+          open_tasks: 0,
+          completed_tasks: 0,
+      };
+
+      const response = await addNewTaskList(list);
+
+      if(response.status === 201) {
+          list.id = response.data.taskList.id;
+          dispatch(addTaskListAction(list));
+      } else {
+          console.log(JSON.stringify(response.data.status));
+      }
   };
   return (
     <div className="flex gap-3">
@@ -118,7 +135,7 @@ export const TaskLists = () => {
         >
           <span>+</span>
         </div>
-        <CompletedTaskList />
+        <CompletedTaskList/>
       </DragDropContext>
       <Prompt
         title="Add new task list"
